@@ -1,4 +1,4 @@
 bin/
 lib/
-pyvenv.cfg/
+pyvenv.cfg
 .idea/
