@@ -4,7 +4,7 @@
 и передать в качестве параметра ip адрес, 
 либо доменное имя с использованием флага --addr
 
-![./photo/example.jpeg](£./photo/example.jpeg)
+![./photo/example.jpeg](./photo/example.jpeg)
 
 Результатом выполнения будет таблица вида:
 
