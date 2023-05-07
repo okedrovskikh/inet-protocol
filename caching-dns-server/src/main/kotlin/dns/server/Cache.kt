@@ -1,29 +1,38 @@
 package dns.server
 
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.nio.charset.Charset
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.Duration
 import java.time.Instant
 
 class Cache : AutoCloseable {
-    private val cache: MutableMap<Pair<Type, String>, MutableList<Pair<ResourceRecord, Instant>>>
+    private val cache: MutableMap<String, MutableList<Pair<ResourceRecord, Long>>>
 
     init {
-        val gsonHelper = GsonHelper()
-        val a = gsonHelper.loadFromJson(CACHE_PATH, HashMap::class.java)
+        var data: MutableMap<String, MutableList<Pair<ResourceRecord, Long>>>? = null
 
-        cache = if (a == null) {
-            HashMap()
-        } else {
-            a as MutableMap<Pair<Type, String>, MutableList<Pair<ResourceRecord, Instant>>>
+        val file = CACHE_PATH.toFile()
+
+        if (file.exists()) {
+            Files.newBufferedReader(CACHE_PATH, Charset.defaultCharset()).use {
+                data = Json.decodeFromString(it.readText())
+            }
         }
+
+        cache = data ?: HashMap()
     }
 
     fun clean() {
-        val remove = mutableListOf<Pair<Pair<Type, String>, Pair<ResourceRecord, Instant>>>()
+        val remove = mutableListOf<Pair<String, Pair<ResourceRecord, Long>>>()
 
         for (e1 in cache.entries) {
             for (e2 in e1.value) {
-                if (Duration.between(Instant.now(), e2.second).seconds.toUInt() > e2.second) {
+                if (Duration.between(Instant.ofEpochSecond(e2.second), Instant.now()) > Duration.ofSeconds(e2.first.ttl.toLong())) {
                     remove.add(Pair(e1.key, e2))
                 }
             }
@@ -35,19 +44,20 @@ class Cache : AutoCloseable {
     }
 
     fun put(resourceRecord: ResourceRecord) {
-        cache.getOrPut(Pair(resourceRecord.type, resourceRecord.name)) { ArrayList() }
-            .add(Pair(resourceRecord, Instant.now()))
+        cache.getOrPut("(${resourceRecord.type} ${resourceRecord.name})") { ArrayList() }
+            .add(Pair(resourceRecord, Instant.now().epochSecond))
     }
 
     fun get(question: Question): List<ResourceRecord> =
-        cache[Pair(question.qType, question.qName)]?.map { it.first }.orEmpty()
+        cache["(${question.qType} ${question.qName})"]?.map { it.first }.orEmpty()
 
     override fun close() {
-        val gsonHelper = GsonHelper()
-        gsonHelper.loadToJson(CACHE_PATH, cache)
+        Files.newBufferedWriter(CACHE_PATH, Charset.defaultCharset(), StandardOpenOption.CREATE).use {
+            it.write(Json.encodeToString(cache))
+        }
     }
 
     companion object {
-        private val CACHE_PATH = Path.of("${System.getProperty("user.dir")}, src, main, resources, cache.json")
+        private val CACHE_PATH = Path.of(System.getProperty("user.dir"), "src", "main", "resources", "cache.json")
     }
 }

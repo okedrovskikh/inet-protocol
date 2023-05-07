@@ -17,7 +17,7 @@ class DnsServer(
         serverSocket.receive(requestPacket)
         val requestMessage = Parser(requestPacket.data).parseMessage()
         println("request")
-        println(requestMessage)
+        //println(requestMessage)
 
         val answers = mutableListOf<ResourceRecord>()
 
@@ -48,7 +48,7 @@ class DnsServer(
             additions = listOf()
         )
         println("response")
-        println(responseMessage)
+        //println(responseMessage)
 
         val responseData = ByteParser().toBytes(responseMessage)
         serverSocket.send(DatagramPacket(responseData, 0 , responseData.size, requestPacket.socketAddress))
